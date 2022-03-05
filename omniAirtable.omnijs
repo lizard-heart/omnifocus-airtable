@@ -1,0 +1,113 @@
+/*{
+	"type": "action",
+	"targets": ["omnifocus"],
+	"author": "Henry Gustafson",
+	"identifier": "com.henry.omniAirtable",
+	"version": "1.0",
+	"description": "This action will complete all projects that have been previously marked as complete in Airtable.",
+	"label": "Sync Airtable Projects",
+	"shortLabel": "OmniFocus Airtable"
+}*/
+(() => {
+	var action = new PlugIn.Action(function(selection, sender){
+
+		try {
+			const projectTitles = []
+			documentIDs = ["JF5E5zE39mKj7QbTB8Ul", "aFUmbH1UivT8e8rFITBr", "aivUt5Wv0fP5pq2YMWtK"] //replace these with your document ids. let me know if you have any questions about how to do this.
+			var baseURL = "https://firestore.googleapis.com/v1/projects/omnifocusairtable/databases/(default)/documents/projects/" //replace this with your url
+
+			function getAirTableProjectName(url) {
+				var request = URL.FetchRequest.fromString(url)
+				request.method = 'GET'
+				request.cache = "no-cache"
+
+				var requestPromise = request.fetch()
+
+				requestPromise.then(response => {
+				    var responseCode = response.statusCode
+				    if (responseCode >= 200 && responseCode < 300){
+						if(response.mimeType == "application/json"){
+							var responseJSON = JSON.parse(response.bodyString)
+							projectTitles.push(responseJSON.fields.name.stringValue);
+							console.log(projectTitles)
+							projectTitles.forEach((item, i) => {
+								var targetProjects = projects.find((p) => p.name.trim().toLowerCase() === item.trim().toLowerCase())
+								try {
+									targetProjects.markComplete()
+								} catch {
+									console.log("Error: Attempted to complete project with name \'" + item + "\' but it wasn't found in OmniFocus database")
+								}
+							});
+							// processing statements
+						} else {
+							console.error("INCORRECT MIMETYPE:", response.mimeType)
+						}
+				    } else {
+				    	new Alert(String(responseCode), "An error occurred.").show()
+				    	console.error(JSON.stringify(response.headers))
+				    }
+				})
+			}
+
+			documentIDs.forEach((item, i) => {
+				getAirTableProjectName(baseURL + item)
+			});
+
+			var tagNames = new Array()
+			tags.apply(tag => tagNames.push(tag.name))
+			if (tagNames.length === 0){throw Error("No tags in database")}
+
+			var textInputField = new Form.Field.String(
+				"textInput",
+				null,
+				null
+			)
+
+
+
+
+		}
+		catch (err){
+			new Alert('SCRIPT ERROR', err.message).show()
+		}
+	});
+
+	function btoa(stringParam) {
+		const b64 =
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+		const string = String(stringParam);
+		var bitmap,
+			a,
+			b,
+			c,
+			result = '',
+			i = 0,
+			rest = string.length % 3;
+
+		for (; i < string.length; ) {
+			if (
+				(a = string.charCodeAt(i++)) > 255 ||
+				(b = string.charCodeAt(i++)) > 255 ||
+				(c = string.charCodeAt(i++)) > 255
+			) {
+				throw "Error";
+			}
+
+			bitmap = (a << 16) | (b << 8) | c;
+			result +=
+				b64.charAt((bitmap >> 18) & 63) +
+				b64.charAt((bitmap >> 12) & 63) +
+				b64.charAt((bitmap >> 6) & 63) +
+				b64.charAt(bitmap & 63);
+		}
+		return rest ? result.slice(0, rest - 3) + '==='.substring(rest) : result;
+	}
+
+	action.validate = function(selection, sender){
+		// validation code
+		// selection options: tasks, projects, folders, tags
+		return true
+	};
+
+	return action;
+})();
